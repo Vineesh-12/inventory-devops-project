@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Inventory Pro</title>
+
+<style>
+body {
+    margin:0;
+    font-family:'Segoe UI', sans-serif;
+    display:flex;
+    background:#f5f7fa;
+}
+
+.sidebar {
+    width:220px;
+    background:#111827;
+    color:white;
+    height:100vh;
+    padding:20px;
+}
+
+.sidebar button {
+    width:100%;
+    padding:12px;
+    margin:5px 0;
+    background:none;
+    border:none;
+    color:#d1d5db;
+    text-align:left;
+}
+
+.sidebar button:hover {
+    background:#1f2937;
+    color:white;
+}
+
+.main {
+    flex:1;
+    padding:20px;
+}
+
+.card {
+    background:white;
+    padding:15px;
+    border-radius:10px;
+    margin-bottom:20px;
+}
+
+.product {
+    background:#f3f4f6;
+    padding:10px;
+    margin:10px 0;
+    border-radius:6px;
+}
+
+button.primary {
+    background:#2563eb;
+    color:white;
+    padding:10px;
+    border:none;
+    width:100%;
+}
+
+input, select {
+    width:95%;
+    padding:8px;
+    margin:5px 0;
+}
+</style>
+</head>
+
+<body>
+
+<div class="sidebar">
+    <h2>Inventory</h2>
+    <button onclick="showSection('dashboard')">Dashboard</button>
+    <button onclick="showSection('products')">Products</button>
+    <button onclick="showSection('sales')">Sales</button>
+    <button onclick="showSection('history')">History</button>
+    <button onclick="logout()">Logout</button>
+</div>
+
+<div class="main">
+
+<div id="dashboard" class="card">
+    <h3>Dashboard</h3>
+    <p>Total Products: <span id="totalProducts"></span></p>
+</div>
+
+<div id="products" class="card" style="display:none">
+    <h3>Add Product</h3>
+
+    <input id="name" placeholder="Name">
+    <input id="price" placeholder="Price">
+    <input id="qty" placeholder="Quantity">
+    <input id="supplier" placeholder="Supplier">
+
+    <select id="category">
+        <option>Electronics</option>
+        <option>Grocery</option>
+        <option>Clothing</option>
+    </select>
+
+    <button class="primary" onclick="addProduct()">Add</button>
+
+    <hr>
+
+    <div id="list"></div>
+</div>
+
+<div id="sales" class="card" style="display:none">
+    <h3>Sales</h3>
+
+    <input id="sellId" placeholder="Paste Product ID">
+    <input id="sellQty" placeholder="Quantity">
+
+    <button onclick="sellProduct()">Sell</button>
+</div>
+
+<div id="history" class="card" style="display:none">
+    <h3>History</h3>
+    <div id="historyList"></div>
+</div>
+
+</div>
+
+<script>
+
+function checkAuth(){
+    if(localStorage.getItem("loggedIn") !== "true"){
+        window.location.href="login.html";
+    }
+}
+
+async function loadProducts(){
+    const res = await fetch("/products");
+    const data = await res.json();
+
+    const list = document.getElementById("list");
+    list.innerHTML = "";
+
+    document.getElementById("totalProducts").innerText = data.length;
+
+    data.forEach(p=>{
+    list.innerHTML += `
+    <div class="product">
+    <b>${p.name || "No Name"}</b> |
+    ₹${p.price} |
+    Qty:${p.qty} |
+    ${p.category || "No Category"} |
+    ${p.supplier || "No Supplier"}
+    <br>
+    <button onclick="deleteProduct('${p._id}')">Delete</button>
+    </div>
+    `;
+});
+}
+
+async function addProduct(){
+    await fetch("/products",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+            name: document.getElementById("name").value,   // ✅ FIX
+            price: Number(document.getElementById("price").value),
+            qty: Number(document.getElementById("qty").value),
+            supplier: document.getElementById("supplier").value,
+            category: document.getElementById("category").value
+        })
+    });
+
+    loadProducts();
+}
+
+async function deleteProduct(id){
+    await fetch(`/products/${id}`,{method:"DELETE"});
+    loadProducts();
+}
+
+async function sellProduct(){
+    await fetch("/sell",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+            id: sellId.value,
+            qty:Number(sellQty.value)
+        })
+    });
+
+    loadProducts();
+    loadHistory();
+}
+
+async function loadHistory(){
+    const res = await fetch("/history");
+    const data = await res.json();
+
+    const historyList = document.getElementById("historyList");
+    historyList.innerHTML = "";
+
+    data.forEach(h=>{
+        historyList.innerHTML += `<div>${h}</div>`;
+    });
+}
+
+function logout(){
+    localStorage.removeItem("loggedIn");
+    window.location.href="login.html";
+}
+
+function showSection(section){
+    document.getElementById("dashboard").style.display="none";
+    document.getElementById("products").style.display="none";
+    document.getElementById("sales").style.display="none";
+    document.getElementById("history").style.display="none";
+
+    document.getElementById(section).style.display="block";
+
+    if(section === "history"){
+        loadHistory();
+    }
+}
+
+checkAuth();
+loadProducts();
+
+</script>
+
+</body>
+</html>

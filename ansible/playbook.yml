@@ -1,0 +1,35 @@
+- name: Setup and deploy inventory app
+  hosts: servers
+  become: yes
+
+  tasks:
+
+    - name: Update packages
+      apt:
+        update_cache: yes
+
+    - name: Install Docker
+      apt:
+        name: docker.io
+        state: present
+
+    - name: Start Docker
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Pull Docker image
+      command: docker pull vineeshreddy/inventory-app
+
+    - name: Kill any process using port 3000
+      shell: sudo fuser -k 3000/tcp || true
+
+    - name: Stop inventory container
+      shell: docker stop inventory-container || true
+
+    - name: Remove inventory container
+      shell: docker rm inventory-container || true  
+
+    - name: Run container
+      command: docker run -d --name inventory-container -p 3000:3000 vineeshreddy/inventory-app

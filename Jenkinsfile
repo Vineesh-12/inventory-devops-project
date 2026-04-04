@@ -38,15 +38,19 @@ pipeline {
             }
         }
 
-        stage('Deploy Container') {
+        stage('Update K8s Deployment Image') {
             steps {
                 sh '''
-                docker stop inventory-app || true
-                docker rm inventory-app || true
-                docker run -d -p 3000:3000 \
-                --name inventory-app \
-                --restart always \
-                $IMAGE_NAME:$TAG
+                sed -i "s|image: .*|image: $IMAGE_NAME:$TAG|g" k8s/deployment.yaml
+                '''
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                sh '''
+                kubectl apply -f k8s/deployment.yaml
+                kubectl apply -f k8s/service.yaml
                 '''
             }
         }

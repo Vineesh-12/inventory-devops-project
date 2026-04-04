@@ -9,11 +9,13 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// MongoDB Connection
+// MongoDB Connection (ROBUST)
 mongoose.connect("mongodb+srv://vineesh:vineesh123@cluster0.nfgcyan.mongodb.net/inventoryDB", {
+    useNewUrlParser: true,
+    useUnifiedTopology: true
 })
-.then(() => console.log("MongoDB Connected"))
-.catch(err => console.log(err));
+.then(() => console.log("✅ MongoDB Connected"))
+.catch(err => console.error("❌ MongoDB Error:", err));
 
 // Schema
 const productSchema = new mongoose.Schema({
@@ -29,57 +31,75 @@ const Product = mongoose.model("Product", productSchema);
 // History (temporary)
 let history = [];
 
+// ================== APIs ==================
+
 // SELL API
 app.post('/sell', async (req, res) => {
-    const { id, qty } = req.body;
+    try {
+        const { id, qty } = req.body;
 
-    const product = await Product.findById(id);
+        const product = await Product.findById(id);
 
-    if (product) {
+        if (!product) {
+            return res.status(404).json({ error: "Product not found" });
+        }
+
         product.qty -= qty;
         await product.save();
 
         history.push(`Sold ${qty} of ${product.name}`);
+
+        res.json({ message: "Sold successfully" });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Sell failed" });
     }
-
-    res.send("Sold");
-});
-
-// Serve frontend
-app.use(express.static(path.join(__dirname, '../frontend')));
-
-// Default page
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/login.html'));
 });
 
 // Get products
 app.get('/products', async (req, res) => {
-    const data = await Product.find();
-    res.json(data);
+    try {
+        const data = await Product.find();
+        res.json(data);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Database error" });
+    }
 });
 
 // Add product
 app.post("/products", async (req, res) => {
+    try {
+        const { name, price, qty, supplier, category } = req.body;
 
-    console.log(req.body);
+        const product = new Product({
+            name,
+            price,
+            qty,
+            supplier,
+            category
+        });
 
-    const product = new Product({
-        name: req.body.name,
-        price: req.body.price,
-        qty: req.body.qty,
-        supplier: req.body.supplier,
-        category: req.body.category
-    });
+        await product.save();
 
-    await product.save();
-    res.send("Product Added");
+        res.json({ message: "Product Added" });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Failed to add product" });
+    }
 });
 
 // Delete product
 app.delete('/products/:id', async (req, res) => {
-    await Product.findByIdAndDelete(req.params.id);
-    res.send("Deleted");
+    try {
+        await Product.findByIdAndDelete(req.params.id);
+        res.json({ message: "Deleted" });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Delete failed" });
+    }
 });
 
 // History API
@@ -87,7 +107,20 @@ app.get('/history', (req, res) => {
     res.json(history);
 });
 
-// Start server
-app.listen(3000, '0.0.0.0', () => {
-    console.log("Server running on port 3000");
+// ================== FRONTEND ==================
+
+// Serve frontend
+app.use(express.static(path.join(__dirname, '../frontend')));
+
+// Default route
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, '../frontend/login.html'));
+});
+
+// ================== SERVER ==================
+
+const PORT = 3000;
+
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 Server running on port ${PORT}`);
 });
